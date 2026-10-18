@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { HomeComponent } from './pages/home/home.component';
 import { DashboardComponent } from './pages/dashboard/dashboard.component';
 import { AssetListComponent } from './pages/asset-list/asset-list.component';
 import { AddAssetComponent } from './pages/add-asset/add-asset.component';
@@ -8,7 +9,8 @@ import { AssetHistoryComponent } from './pages/asset-history/asset-history.compo
 import { EmployeesComponent } from './pages/employees/employees.component';
 
 export const routes: Routes = [
-  { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
+  { path: '', component: HomeComponent, title: 'Home | IT Asset Management Suite' },
+  { path: 'home', component: HomeComponent, title: 'Home | IT Asset Management Suite' },
   { path: 'dashboard', component: DashboardComponent, title: 'Dashboard | IT Asset Management' },
   { path: 'assets', component: AssetListComponent, title: 'Asset Inventory | IT Asset Management' },
   { path: 'assets/new', component: AddAssetComponent, title: 'Register Asset | IT Asset Management' },
@@ -16,5 +18,5 @@ export const routes: Routes = [
   { path: 'assign', component: AssignAssetComponent, title: 'Assign Asset | IT Asset Management' },
   { path: 'history', component: AssetHistoryComponent, title: 'Asset Audit History | IT Asset Management' },
   { path: 'employees', component: EmployeesComponent, title: 'Employees Directory | IT Asset Management' },
-  { path: '**', redirectTo: 'dashboard' }
+  { path: '**', redirectTo: '' }
 ];

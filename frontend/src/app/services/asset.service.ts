@@ -1,7 +1,16 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, catchError, map, of, throwError } from 'rxjs';
-import { Asset, AssetHistory, AssignRequest, Employee, ReturnRequest, ToastMessage } from '../models/asset.model';
+import { 
+  Asset, 
+  AssetHistory, 
+  AssignRequest, 
+  Employee, 
+  PaginatedResponse, 
+  ReturnRequest, 
+  ToastMessage, 
+  isAssigned 
+} from '../models/asset.model';
 
 @Injectable({
   providedIn: 'root'
@@ -36,9 +45,16 @@ export class AssetService {
     this.toasts.update(current => current.filter(t => t.id !== id));
   }
 
-  // Assets API
-  getAssets(): Observable<Asset[]> {
-    return this.http.get<Asset[]>(`${this.baseUrl}/assets`).pipe(
+  // Assets API with Search, Filter & Pagination
+  getAssets(search?: string, status?: string, assetType?: string): Observable<Asset[]> {
+    const params: string[] = [];
+    if (search) params.push(`search=${encodeURIComponent(search)}`);
+    if (status && status !== 'ALL') params.push(`status=${encodeURIComponent(status)}`);
+    if (assetType && assetType !== 'ALL') params.push(`asset_type=${encodeURIComponent(assetType)}`);
+
+    const queryString = params.length > 0 ? `?${params.join('&')}` : '';
+
+    return this.http.get<Asset[]>(`${this.baseUrl}/assets${queryString}`).pipe(
       map(assets => {
         const list = assets || [];
         this.cachedAssets.set(list);
@@ -51,10 +67,37 @@ export class AssetService {
     );
   }
 
+  getPaginatedAssets(search?: string, status?: string, assetType?: string, page = 1, limit = 10): Observable<PaginatedResponse<Asset>> {
+    const params: string[] = [`page=${page}`, `limit=${limit}`];
+    if (search) params.push(`search=${encodeURIComponent(search)}`);
+    if (status && status !== 'ALL') params.push(`status=${encodeURIComponent(status)}`);
+    if (assetType && assetType !== 'ALL') params.push(`asset_type=${encodeURIComponent(assetType)}`);
+
+    return this.http.get<PaginatedResponse<Asset>>(`${this.baseUrl}/assets?${params.join('&')}`).pipe(
+      map(res => {
+        if (res && res.data) {
+          return res;
+        }
+        // Fallback for non-paginated return format
+        const arr = (res as any) || [];
+        return {
+          data: arr,
+          total: arr.length,
+          page: 1,
+          limit: arr.length || 10,
+          total_pages: 1
+        };
+      }),
+      catchError(err => {
+        this.showToast('error', 'Error Fetching Assets', this.getErrorMessage(err));
+        return throwError(() => err);
+      })
+    );
+  }
+
   getAssetById(id: number): Observable<Asset> {
     return this.http.get<Asset>(`${this.baseUrl}/assets/${id}`).pipe(
       catchError(err => {
-        // Fallback to cached assets if single endpoint is not reachable
         const cached = this.cachedAssets().find(a => a.id === id);
         if (cached) {
           return of(cached);
@@ -66,7 +109,16 @@ export class AssetService {
   }
 
   createAsset(asset: Partial<Asset>): Observable<Asset> {
-    return this.http.post<Asset>(`${this.baseUrl}/assets`, asset).pipe(
+    // Ensure both asset_type and category are present
+    const payload = { ...asset };
+    if (!payload.asset_type && payload.category) {
+      payload.asset_type = payload.category;
+    }
+    if (!payload.category && payload.asset_type) {
+      payload.category = payload.asset_type;
+    }
+
+    return this.http.post<Asset>(`${this.baseUrl}/assets`, payload).pipe(
       map(newAsset => {
         this.showToast('success', 'Asset Created', `Asset ${newAsset.asset_code} successfully registered.`);
         return newAsset;
@@ -80,7 +132,15 @@ export class AssetService {
   }
 
   updateAsset(id: number, asset: Partial<Asset>): Observable<Asset> {
-    return this.http.put<Asset>(`${this.baseUrl}/assets/${id}`, asset).pipe(
+    const payload = { ...asset };
+    if (!payload.asset_type && payload.category) {
+      payload.asset_type = payload.category;
+    }
+    if (!payload.category && payload.asset_type) {
+      payload.category = payload.asset_type;
+    }
+
+    return this.http.put<Asset>(`${this.baseUrl}/assets/${id}`, payload).pipe(
       map(updated => {
         this.showToast('success', 'Asset Updated', `Asset ${updated.asset_code} updated successfully.`);
         return updated;
@@ -137,8 +197,8 @@ export class AssetService {
     );
   }
 
-  markForRepair(assetId: number): Observable<any> {
-    return this.http.post(`${this.baseUrl}/assets/${assetId}/repair`, {}).pipe(
+  markForRepair(assetId: number, notes?: string): Observable<any> {
+    return this.http.post(`${this.baseUrl}/assets/${assetId}/repair`, { notes }).pipe(
       map((res: any) => {
         this.showToast('warning', 'Under Repair', res.message || 'Asset marked for maintenance/repair.');
         return res;
@@ -151,8 +211,8 @@ export class AssetService {
     );
   }
 
-  retireAsset(assetId: number): Observable<any> {
-    return this.http.post(`${this.baseUrl}/assets/${assetId}/retire`, {}).pipe(
+  retireAsset(assetId: number, notes?: string): Observable<any> {
+    return this.http.post(`${this.baseUrl}/assets/${assetId}/retire`, { notes }).pipe(
       map((res: any) => {
         this.showToast('info', 'Asset Retired', res.message || 'Asset decommissioned and retired.');
         return res;
@@ -183,6 +243,15 @@ export class AssetService {
       catchError(err => {
         this.showToast('error', 'Error Fetching History', this.getErrorMessage(err));
         return of([]);
+      })
+    );
+  }
+
+  getAssetHistoryByAssetId(assetId: number): Observable<AssetHistory[]> {
+    return this.http.get<AssetHistory[]>(`${this.baseUrl}/assets/${assetId}/history`).pipe(
+      catchError(() => {
+        // Fallback to query param on /asset-history
+        return this.getAssetHistory(assetId);
       })
     );
   }
@@ -245,7 +314,6 @@ export class AssetService {
     );
   }
 
-
   private deriveEmployees(): Employee[] {
     const list = [...this.localEmployees()];
     const currentAssets = this.cachedAssets();
@@ -264,9 +332,9 @@ export class AssetService {
       }
     }
 
-    // Compute assigned_assets_count
+    // Compute assigned_assets_count using status helper
     return list.map(emp => {
-      const count = currentAssets.filter(a => a.assigned_to && a.assigned_to.toLowerCase() === emp.name.toLowerCase()).length;
+      const count = currentAssets.filter(a => a.assigned_to && a.assigned_to.toLowerCase() === emp.name.toLowerCase() && isAssigned(a.status)).length;
       return { ...emp, assigned_assets_count: count };
     });
   }

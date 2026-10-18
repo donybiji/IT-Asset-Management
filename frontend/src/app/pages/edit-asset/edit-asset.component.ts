@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AssetService } from '../../services/asset.service';
-import { Asset } from '../../models/asset.model';
+import { Asset, isAssigned, normalizeStatus } from '../../models/asset.model';
 
 @Component({
   selector: 'app-edit-asset',
@@ -11,14 +11,14 @@ import { Asset } from '../../models/asset.model';
   imports: [CommonModule, FormsModule, RouterLink],
   template: `
     <div class="edit-asset-page animate-fade-in">
-      <div class="page-header">
+      <div class="page-header compact-header">
         <div>
           <h1 class="page-title">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
             </svg>
-            Edit Asset: <span style="color: #818cf8; font-family: var(--font-mono);">{{ assetData.asset_code }}</span>
+            <span>Edit Asset: <span style="color: #818cf8; font-family: var(--font-mono);">{{ assetData.asset_code }}</span></span>
           </h1>
           <p class="page-subtitle">Modify specifications, location, or status of this registered hardware item.</p>
         </div>
@@ -86,18 +86,18 @@ import { Asset } from '../../models/asset.model';
               </div>
             </div>
 
-            <!-- Category -->
+            <!-- Asset Type -->
             <div class="form-group">
               <label class="form-label">
-                Category / Type <span class="required">*</span>
+                Asset Type <span class="required">*</span>
               </label>
               <select 
-                name="category"
-                [(ngModel)]="assetData.category" 
+                name="asset_type"
+                [(ngModel)]="assetData.asset_type" 
                 required 
-                #catModel="ngModel"
+                #typeModel="ngModel"
                 class="form-select"
-                [class.is-invalid]="catModel.invalid && (catModel.dirty || catModel.touched || submitted)"
+                [class.is-invalid]="typeModel.invalid && (typeModel.dirty || typeModel.touched || submitted)"
               >
                 <option value="Laptop">Laptop</option>
                 <option value="Monitor">Monitor</option>
@@ -110,8 +110,8 @@ import { Asset } from '../../models/asset.model';
                 <option value="Audio/Video">Audio/Video</option>
                 <option value="Other">Other</option>
               </select>
-              <div *ngIf="catModel.invalid && (catModel.dirty || catModel.touched || submitted)" class="error-feedback">
-                Category is required.
+              <div *ngIf="typeModel.invalid && (typeModel.dirty || typeModel.touched || submitted)" class="error-feedback">
+                Asset Type is required.
               </div>
             </div>
 
@@ -161,15 +161,15 @@ import { Asset } from '../../models/asset.model';
             <div class="form-group">
               <label class="form-label">Current Status</label>
               <select name="status" [(ngModel)]="assetData.status" class="form-select">
-                <option value="Available">Available</option>
-                <option value="Assigned">Assigned</option>
-                <option value="Under Repair">Under Repair</option>
-                <option value="Retired">Retired</option>
+                <option value="AVAILABLE">AVAILABLE (In Stock)</option>
+                <option value="ASSIGNED">ASSIGNED (Allocated)</option>
+                <option value="UNDER_REPAIR">UNDER_REPAIR (Maintenance)</option>
+                <option value="RETIRED">RETIRED (Decommissioned)</option>
               </select>
             </div>
 
             <!-- Assigned To (If assigned) -->
-            <div class="form-group" *ngIf="assetData.status === 'Assigned'">
+            <div class="form-group" *ngIf="isAssignedStatus()">
               <label class="form-label">Assigned Employee</label>
               <input 
                 type="text" 
@@ -182,9 +182,9 @@ import { Asset } from '../../models/asset.model';
           </div>
 
           <div class="form-actions">
-            <a routerLink="/assets" class="btn btn-secondary">Cancel</a>
-            <button type="submit" class="btn btn-primary" [disabled]="saving">
-              <span *ngIf="saving" class="spinner" style="width: 16px; height: 16px; margin-right: 6px;"></span>
+            <a routerLink="/assets" class="btn btn-secondary btn-sm">Cancel</a>
+            <button type="submit" class="btn btn-primary btn-sm" [disabled]="saving">
+              <span *ngIf="saving" class="spinner" style="width: 14px; height: 14px; margin-right: 6px;"></span>
               <span>{{ saving ? 'Saving Changes...' : 'Save Changes' }}</span>
             </button>
           </div>
@@ -193,46 +193,96 @@ import { Asset } from '../../models/asset.model';
     </div>
   `,
   styles: [`
-    .form-container {
-      max-width: 860px;
+    .edit-asset-page {
+      max-width: 680px;
       margin: 0 auto;
-      padding: 2.5rem;
+    }
+
+    .compact-header {
+      margin-bottom: 1.25rem;
+    }
+
+    .page-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .page-subtitle {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      margin-top: 0.2rem;
+    }
+
+    .form-container {
+      padding: 1.5rem 1.75rem;
+      border-radius: var(--radius-lg);
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
     }
 
     .form-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 1.5rem;
+      gap: 1rem 1.25rem;
     }
 
-    @media (max-width: 768px) {
+    @media (max-width: 640px) {
       .form-grid {
         grid-template-columns: 1fr;
       }
       .form-container {
-        padding: 1.5rem;
+        padding: 1.25rem;
       }
+    }
+
+    .form-group {
+      margin-bottom: 0.25rem;
+    }
+
+    .form-label {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 0.35rem;
+      display: block;
+    }
+
+    .form-control, .form-select {
+      height: 38px;
+      padding: 0.45rem 0.75rem;
+      font-size: 0.84rem;
+      border-radius: var(--radius-sm);
     }
 
     .api-error-banner {
       background: rgba(239, 68, 68, 0.12);
       border: 1px solid rgba(239, 68, 68, 0.35);
       border-radius: var(--radius-md);
-      padding: 1rem;
+      padding: 0.75rem 1rem;
       color: #fca5a5;
       display: flex;
       align-items: center;
-      gap: 0.75rem;
-      margin-bottom: 2rem;
+      gap: 0.65rem;
+      margin-bottom: 1.25rem;
+      font-size: 0.8125rem;
     }
 
     .form-actions {
       display: flex;
       justify-content: flex-end;
-      gap: 1rem;
-      margin-top: 2rem;
-      padding-top: 1.5rem;
+      gap: 0.75rem;
+      margin-top: 1.25rem;
+      padding-top: 1rem;
       border-top: 1px solid var(--border-subtle);
+    }
+
+    .form-actions .btn {
+      padding: 0.5rem 1.1rem;
+      font-size: 0.8125rem;
     }
   `]
 })
@@ -263,6 +313,9 @@ export class EditAssetComponent implements OnInit {
     this.assetService.getAssetById(this.assetId).subscribe({
       next: (asset) => {
         this.assetData = { ...asset };
+        if (!this.assetData.asset_type && this.assetData.category) {
+          this.assetData.asset_type = this.assetData.category;
+        }
         this.loading = false;
       },
       error: () => {
@@ -271,16 +324,27 @@ export class EditAssetComponent implements OnInit {
     });
   }
 
+  isAssignedStatus(): boolean {
+    return isAssigned(this.assetData.status);
+  }
+
   onSubmit() {
     this.submitted = true;
     this.apiError = null;
 
-    if (!this.assetData.asset_name || !this.assetData.category || !this.assetData.serial_number) {
+    if (!this.assetData.asset_type && this.assetData.category) {
+      this.assetData.asset_type = this.assetData.category;
+    }
+    if (!this.assetData.category && this.assetData.asset_type) {
+      this.assetData.category = this.assetData.asset_type;
+    }
+
+    if (!this.assetData.asset_name || !this.assetData.asset_type || !this.assetData.serial_number) {
       return;
     }
 
-    // If status is not Assigned, clear assigned_to
-    if (this.assetData.status !== 'Assigned') {
+    // If status is not ASSIGNED, clear assigned_to
+    if (!this.isAssignedStatus()) {
       this.assetData.assigned_to = null;
     }
 
@@ -297,7 +361,7 @@ export class EditAssetComponent implements OnInit {
         } else if (err.error?.message) {
           this.apiError = err.error.message;
         } else {
-          this.apiError = 'Failed to update asset. Please check network connection and try again.';
+          this.apiError = 'Failed to update asset. Please check network connection and serial number uniqueness.';
         }
       }
     });

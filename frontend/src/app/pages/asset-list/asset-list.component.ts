@@ -1,9 +1,19 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AssetService } from '../../services/asset.service';
-import { Asset, Employee } from '../../models/asset.model';
+import { 
+  Asset, 
+  Employee, 
+  getStatusDisplayName, 
+  getStatusBadgeClass, 
+  isAvailable, 
+  isAssigned, 
+  isUnderRepair, 
+  isRetired, 
+  normalizeStatus 
+} from '../../models/asset.model';
 
 @Component({
   selector: 'app-asset-list',
@@ -21,7 +31,7 @@ import { Asset, Employee } from '../../models/asset.model';
             </svg>
             IT Asset Inventory
           </h1>
-          <p class="page-subtitle">Track, filter, assign, return, and manage enterprise hardware assets.</p>
+          <p class="page-subtitle">Track, filter, assign, return, repair, retire, and manage enterprise hardware assets.</p>
         </div>
 
         <div class="header-actions">
@@ -45,37 +55,37 @@ import { Asset, Employee } from '../../models/asset.model';
           <input 
             type="text" 
             [(ngModel)]="searchQuery" 
-            (ngModelChange)="onSearchChange()"
+            (ngModelChange)="onFilterChange()"
             placeholder="Search by asset code or serial number..." 
             class="form-control search-field"
           />
-          <button *ngIf="searchQuery" (click)="searchQuery = ''; onSearchChange()" class="clear-btn">&times;</button>
+          <button *ngIf="searchQuery" (click)="searchQuery = ''; onFilterChange()" class="clear-btn">&times;</button>
         </div>
 
         <div class="filters-wrap">
           <!-- Status Filter -->
           <div class="filter-group">
             <label class="filter-label">Status:</label>
-            <select [(ngModel)]="selectedStatus" (ngModelChange)="currentPage = 1" class="form-select filter-select">
+            <select [(ngModel)]="selectedStatus" (ngModelChange)="onFilterChange()" class="form-select filter-select">
               <option value="ALL">All Statuses</option>
-              <option value="Available">Available</option>
-              <option value="Assigned">Assigned</option>
-              <option value="Under Repair">Under Repair</option>
-              <option value="Retired">Retired</option>
+              <option value="AVAILABLE">Available</option>
+              <option value="ASSIGNED">Assigned</option>
+              <option value="UNDER_REPAIR">Under Repair</option>
+              <option value="RETIRED">Retired</option>
             </select>
           </div>
 
-          <!-- Type / Category Filter -->
+          <!-- Asset Type Filter -->
           <div class="filter-group">
-            <label class="filter-label">Category:</label>
-            <select [(ngModel)]="selectedCategory" (ngModelChange)="currentPage = 1" class="form-select filter-select">
-              <option value="ALL">All Types</option>
-              <option *ngFor="let cat of availableCategories()" [value]="cat">{{ cat }}</option>
+            <label class="filter-label">Asset Type:</label>
+            <select [(ngModel)]="selectedType" (ngModelChange)="onFilterChange()" class="form-select filter-select">
+              <option value="ALL">All Asset Types</option>
+              <option *ngFor="let t of availableAssetTypes()" [value]="t">{{ t }}</option>
             </select>
           </div>
 
           <!-- Reset Filter Button -->
-          <button *ngIf="searchQuery || selectedStatus !== 'ALL' || selectedCategory !== 'ALL'" (click)="resetFilters()" class="btn btn-outline btn-sm">
+          <button *ngIf="searchQuery || selectedStatus !== 'ALL' || selectedType !== 'ALL'" (click)="resetFilters()" class="btn btn-outline btn-sm">
             Reset
           </button>
         </div>
@@ -110,7 +120,7 @@ import { Asset, Employee } from '../../models/asset.model';
             <tr>
               <th>Asset Code</th>
               <th>Asset Name</th>
-              <th>Category</th>
+              <th>Asset Type</th>
               <th>Serial Number</th>
               <th>Purchase Date</th>
               <th>Status</th>
@@ -127,7 +137,7 @@ import { Asset, Employee } from '../../models/asset.model';
               <td>
                 <strong style="color: #fff;">{{ item.asset_name }}</strong>
               </td>
-              <td>{{ item.category || '—' }}</td>
+              <td>{{ item.asset_type || item.category || '—' }}</td>
               <td>
                 <span class="code-font" style="font-size: 0.75rem;">{{ item.serial_number || '—' }}</span>
               </td>
@@ -135,8 +145,8 @@ import { Asset, Employee } from '../../models/asset.model';
                 {{ item.purchase_date || '—' }}
               </td>
               <td>
-                <span class="badge" [ngClass]="getStatusBadgeClass(item.status)">
-                  {{ item.status }}
+                <span class="badge" [ngClass]="getStatusBadge(item.status)">
+                  {{ getStatusLabel(item.status) }}
                 </span>
               </td>
               <td>
@@ -167,9 +177,9 @@ import { Asset, Employee } from '../../models/asset.model';
                     </svg>
                   </a>
 
-                  <!-- Assign (Enabled only if Available) -->
+                  <!-- Assign (Enabled only if AVAILABLE) -->
                   <button 
-                    *ngIf="item.status === 'Available'"
+                    *ngIf="canAssign(item)"
                     (click)="openAssignModal(item)" 
                     class="action-btn assign-btn" 
                     title="Assign to Employee"
@@ -182,9 +192,9 @@ import { Asset, Employee } from '../../models/asset.model';
                     </svg>
                   </button>
 
-                  <!-- Return (Enabled only if Assigned) -->
+                  <!-- Return (Enabled only if ASSIGNED) -->
                   <button 
-                    *ngIf="item.status === 'Assigned'" 
+                    *ngIf="canReturn(item)" 
                     (click)="openReturnModal(item)" 
                     class="action-btn return-btn" 
                     title="Return Asset"
@@ -197,7 +207,7 @@ import { Asset, Employee } from '../../models/asset.model';
 
                   <!-- Mark For Repair -->
                   <button 
-                    *ngIf="item.status !== 'Under Repair' && item.status !== 'Retired'" 
+                    *ngIf="canRepair(item)" 
                     (click)="markForRepair(item)" 
                     class="action-btn repair-btn" 
                     title="Mark For Repair"
@@ -209,7 +219,7 @@ import { Asset, Employee } from '../../models/asset.model';
 
                   <!-- Retire -->
                   <button 
-                    *ngIf="item.status !== 'Retired'" 
+                    *ngIf="canRetire(item)" 
                     (click)="retireAsset(item)" 
                     class="action-btn retire-btn" 
                     title="Retire Asset"
@@ -277,15 +287,15 @@ import { Asset, Employee } from '../../models/asset.model';
                 <span class="code-font" style="font-size: 0.9rem;">{{ viewModalAsset.asset_code }}</span>
                 <h2 style="color: #fff; font-size: 1.3rem; margin-top: 0.25rem;">{{ viewModalAsset.asset_name }}</h2>
               </div>
-              <span class="badge" [ngClass]="getStatusBadgeClass(viewModalAsset.status)">
-                {{ viewModalAsset.status }}
+              <span class="badge" [ngClass]="getStatusBadge(viewModalAsset.status)">
+                {{ getStatusLabel(viewModalAsset.status) }}
               </span>
             </div>
 
             <div class="detail-grid">
               <div class="detail-cell">
-                <span class="detail-label">Category / Type</span>
-                <span class="detail-val">{{ viewModalAsset.category || 'Not specified' }}</span>
+                <span class="detail-label">Asset Type</span>
+                <span class="detail-val">{{ viewModalAsset.asset_type || viewModalAsset.category || 'Not specified' }}</span>
               </div>
               <div class="detail-cell">
                 <span class="detail-label">Serial Number</span>
@@ -347,7 +357,7 @@ import { Asset, Employee } from '../../models/asset.model';
           </div>
           <div class="modal-body" *ngIf="returnModalAsset">
             <p>You are returning asset <strong style="color: #fff;">{{ returnModalAsset.asset_code }}</strong> currently assigned to <strong style="color: #38bdf8;">{{ returnModalAsset.assigned_to }}</strong>.</p>
-            <p style="color: var(--text-dim); font-size: 0.8125rem; margin-top: 0.25rem;">This asset will be restored to 'Available' stock.</p>
+            <p style="color: var(--text-dim); font-size: 0.8125rem; margin-top: 0.25rem;">This asset will be restored to 'AVAILABLE' stock and an audit log will be created.</p>
             
             <div class="form-group" style="margin-top: 1rem;">
               <label class="form-label">Return Condition / Notes:</label>
@@ -675,6 +685,7 @@ import { Asset, Employee } from '../../models/asset.model';
 export class AssetListComponent implements OnInit {
   private assetService = inject(AssetService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
 
   public assets = signal<Asset[]>([]);
   public loading = signal<boolean>(false);
@@ -683,7 +694,7 @@ export class AssetListComponent implements OnInit {
   // Search & Filter State
   public searchQuery = '';
   public selectedStatus = 'ALL';
-  public selectedCategory = 'ALL';
+  public selectedType = 'ALL';
 
   // Pagination State
   public currentPage = 1;
@@ -701,6 +712,18 @@ export class AssetListComponent implements OnInit {
   public employeesList: Employee[] = [];
 
   ngOnInit() {
+    this.route.queryParams.subscribe(params => {
+      if (params['status']) {
+        this.selectedStatus = params['status'].toUpperCase();
+      }
+      if (params['search']) {
+        this.searchQuery = params['search'];
+      }
+      if (params['asset_type']) {
+        this.selectedType = params['asset_type'];
+      }
+    });
+
     this.loadAssets();
     this.loadEmployees();
   }
@@ -726,38 +749,39 @@ export class AssetListComponent implements OnInit {
     });
   }
 
-  availableCategories(): string[] {
-    const list = this.assets().map(a => a.category).filter(Boolean);
+  availableAssetTypes(): string[] {
+    const list = this.assets().map(a => a.asset_type || a.category).filter(Boolean) as string[];
     return Array.from(new Set(list));
   }
 
-  onSearchChange() {
+  onFilterChange() {
     this.currentPage = 1;
   }
 
   resetFilters() {
     this.searchQuery = '';
     this.selectedStatus = 'ALL';
-    this.selectedCategory = 'ALL';
+    this.selectedType = 'ALL';
     this.currentPage = 1;
   }
 
   filteredAssets(): Asset[] {
     return this.assets().filter(item => {
-      // Search by code or serial
       const q = this.searchQuery.toLowerCase().trim();
       const matchSearch = !q || 
         item.asset_code.toLowerCase().includes(q) || 
         (item.serial_number && item.serial_number.toLowerCase().includes(q)) ||
         item.asset_name.toLowerCase().includes(q);
 
-      // Filter by status
-      const matchStatus = this.selectedStatus === 'ALL' || item.status === this.selectedStatus;
+      // Filter by status (normalizing both)
+      const itemStatusNorm = normalizeStatus(item.status);
+      const matchStatus = this.selectedStatus === 'ALL' || itemStatusNorm === normalizeStatus(this.selectedStatus);
 
-      // Filter by category
-      const matchCat = this.selectedCategory === 'ALL' || item.category === this.selectedCategory;
+      // Filter by asset type / category
+      const itemType = (item.asset_type || item.category || '').toLowerCase();
+      const matchType = this.selectedType === 'ALL' || itemType === this.selectedType.toLowerCase();
 
-      return matchSearch && matchStatus && matchCat;
+      return matchSearch && matchStatus && matchType;
     });
   }
 
@@ -775,14 +799,28 @@ export class AssetListComponent implements OnInit {
     return Math.min(a, b);
   }
 
-  getStatusBadgeClass(status: string): string {
-    switch (status) {
-      case 'Available': return 'badge-available';
-      case 'Assigned': return 'badge-assigned';
-      case 'Under Repair': return 'badge-repair';
-      case 'Retired': return 'badge-retired';
-      default: return 'badge-available';
-    }
+  getStatusBadge(status: string): string {
+    return getStatusBadgeClass(status);
+  }
+
+  getStatusLabel(status: string): string {
+    return getStatusDisplayName(status);
+  }
+
+  canAssign(item: Asset): boolean {
+    return isAvailable(item.status);
+  }
+
+  canReturn(item: Asset): boolean {
+    return isAssigned(item.status);
+  }
+
+  canRepair(item: Asset): boolean {
+    return !isUnderRepair(item.status) && !isRetired(item.status);
+  }
+
+  canRetire(item: Asset): boolean {
+    return !isRetired(item.status);
   }
 
   // Modal Triggers

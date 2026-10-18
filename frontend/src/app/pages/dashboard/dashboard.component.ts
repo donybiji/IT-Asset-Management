@@ -2,7 +2,16 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { AssetService } from '../../services/asset.service';
-import { Asset, AssetHistory, DashboardStats } from '../../models/asset.model';
+import { 
+  Asset, 
+  AssetHistory, 
+  DashboardStats, 
+  isAvailable, 
+  isAssigned, 
+  isUnderRepair, 
+  isRetired,
+  getStatusBadgeClass 
+} from '../../models/asset.model';
 
 @Component({
   selector: 'app-dashboard',
@@ -46,7 +55,7 @@ import { Asset, AssetHistory, DashboardStats } from '../../models/asset.model';
       <!-- Quick Summary Cards -->
       <div class="stat-grid">
         <!-- Total Assets -->
-        <div class="stat-card" style="--accent-gradient: linear-gradient(90deg, #6366f1, #818cf8)">
+        <a routerLink="/assets" class="stat-card" style="--accent-gradient: linear-gradient(90deg, #6366f1, #818cf8); text-decoration: none;">
           <div class="stat-header">
             <span class="stat-title">Total Assets</span>
             <div class="stat-icon" style="background: rgba(99, 102, 241, 0.12); color: #818cf8;">
@@ -61,10 +70,10 @@ import { Asset, AssetHistory, DashboardStats } from '../../models/asset.model';
           <div class="stat-footer">
             <span>Enterprise repository size</span>
           </div>
-        </div>
+        </a>
 
         <!-- Available Assets -->
-        <div class="stat-card" style="--accent-gradient: linear-gradient(90deg, #10b981, #34d399)">
+        <a [routerLink]="['/assets']" [queryParams]="{status: 'AVAILABLE'}" class="stat-card" style="--accent-gradient: linear-gradient(90deg, #10b981, #34d399); text-decoration: none;">
           <div class="stat-header">
             <span class="stat-title">Available in Stock</span>
             <div class="stat-icon" style="background: rgba(16, 185, 129, 0.12); color: #34d399;">
@@ -78,10 +87,10 @@ import { Asset, AssetHistory, DashboardStats } from '../../models/asset.model';
           <div class="stat-footer">
             <span>Ready for deployment</span>
           </div>
-        </div>
+        </a>
 
         <!-- Assigned Assets -->
-        <div class="stat-card" style="--accent-gradient: linear-gradient(90deg, #0284c7, #38bdf8)">
+        <a [routerLink]="['/assets']" [queryParams]="{status: 'ASSIGNED'}" class="stat-card" style="--accent-gradient: linear-gradient(90deg, #0284c7, #38bdf8); text-decoration: none;">
           <div class="stat-header">
             <span class="stat-title">Assigned Assets</span>
             <div class="stat-icon" style="background: rgba(56, 189, 248, 0.12); color: #38bdf8;">
@@ -95,10 +104,10 @@ import { Asset, AssetHistory, DashboardStats } from '../../models/asset.model';
           <div class="stat-footer">
             <span>Allocated to employees</span>
           </div>
-        </div>
+        </a>
 
         <!-- Under Repair Assets -->
-        <div class="stat-card" style="--accent-gradient: linear-gradient(90deg, #d97706, #fbbf24)">
+        <a [routerLink]="['/assets']" [queryParams]="{status: 'UNDER_REPAIR'}" class="stat-card" style="--accent-gradient: linear-gradient(90deg, #d97706, #fbbf24); text-decoration: none;">
           <div class="stat-header">
             <span class="stat-title">Under Repair</span>
             <div class="stat-icon" style="background: rgba(245, 158, 11, 0.12); color: #fbbf24;">
@@ -111,10 +120,10 @@ import { Asset, AssetHistory, DashboardStats } from '../../models/asset.model';
           <div class="stat-footer">
             <span>Maintenance & diagnosis</span>
           </div>
-        </div>
+        </a>
 
         <!-- Retired Assets -->
-        <div class="stat-card" style="--accent-gradient: linear-gradient(90deg, #475569, #94a3b8)">
+        <a [routerLink]="['/assets']" [queryParams]="{status: 'RETIRED'}" class="stat-card" style="--accent-gradient: linear-gradient(90deg, #475569, #94a3b8); text-decoration: none;">
           <div class="stat-header">
             <span class="stat-title">Retired Assets</span>
             <div class="stat-icon" style="background: rgba(148, 163, 184, 0.12); color: #94a3b8;">
@@ -128,10 +137,10 @@ import { Asset, AssetHistory, DashboardStats } from '../../models/asset.model';
           <div class="stat-footer">
             <span>Decommissioned</span>
           </div>
-        </div>
+        </a>
       </div>
 
-      <!-- Quick Action Navigation Hub -->
+      <!-- Quick Action Navigation Hub & Asset Type Distribution -->
       <div class="hub-grid">
         <div class="card hub-card">
           <div class="hub-header">
@@ -197,25 +206,25 @@ import { Asset, AssetHistory, DashboardStats } from '../../models/asset.model';
           </div>
         </div>
 
-        <!-- Category Distribution Card -->
+        <!-- Asset Type Distribution Card -->
         <div class="card category-card">
           <div class="hub-header">
-            <h2 class="card-title">Category Breakdown</h2>
+            <h2 class="card-title">Asset Type Breakdown</h2>
             <span class="hub-badge">Inventory</span>
           </div>
 
-          <div *ngIf="categoryList().length === 0" class="empty-cats">
-            <span>No category data available yet.</span>
+          <div *ngIf="assetTypeList().length === 0" class="empty-cats">
+            <span>No asset types available yet.</span>
           </div>
 
-          <div class="category-list" *ngIf="categoryList().length > 0">
-            <div *ngFor="let cat of categoryList()" class="category-item">
+          <div class="category-list" *ngIf="assetTypeList().length > 0">
+            <div *ngFor="let item of assetTypeList()" class="category-item">
               <div class="cat-info">
-                <span class="cat-name">{{ cat.name }}</span>
-                <span class="cat-count">{{ cat.count }} items ({{ cat.percentage }}%)</span>
+                <span class="cat-name">{{ item.name }}</span>
+                <span class="cat-count">{{ item.count }} items ({{ item.percentage }}%)</span>
               </div>
               <div class="progress-bar-bg">
-                <div class="progress-bar-fill" [style.width.%]="cat.percentage"></div>
+                <div class="progress-bar-fill" [style.width.%]="item.percentage"></div>
               </div>
             </div>
           </div>
@@ -242,6 +251,7 @@ import { Asset, AssetHistory, DashboardStats } from '../../models/asset.model';
               <tr>
                 <th>Action</th>
                 <th>Asset Code</th>
+                <th>Asset Name</th>
                 <th>Employee</th>
                 <th>Timestamp</th>
                 <th>Notes</th>
@@ -255,6 +265,7 @@ import { Asset, AssetHistory, DashboardStats } from '../../models/asset.model';
                   </span>
                 </td>
                 <td><span class="code-font">{{ h.asset_code }}</span></td>
+                <td><strong style="color: #fff;">{{ h.asset_name || '—' }}</strong></td>
                 <td>{{ h.employee || '—' }}</td>
                 <td style="color: var(--text-dim);">{{ h.action_date | date:'medium' }}</td>
                 <td>{{ h.notes || '—' }}</td>
@@ -439,7 +450,8 @@ export class DashboardComponent implements OnInit {
     assignedAssets: 0,
     underRepairAssets: 0,
     retiredAssets: 0,
-    categoryBreakdown: {}
+    categoryBreakdown: {},
+    assetTypeBreakdown: {}
   });
   public recentHistory = signal<AssetHistory[]>([]);
 
@@ -450,23 +462,22 @@ export class DashboardComponent implements OnInit {
   loadDashboardData() {
     this.loading.set(true);
 
-    // Fetch real assets from Go backend API
     this.assetService.getAssets().subscribe({
       next: (assets) => {
         let available = 0;
         let assigned = 0;
         let repair = 0;
         let retired = 0;
-        const categories: { [key: string]: number } = {};
+        const types: { [key: string]: number } = {};
 
         for (const a of assets) {
-          if (a.status === 'Available') available++;
-          else if (a.status === 'Assigned') assigned++;
-          else if (a.status === 'Under Repair') repair++;
-          else if (a.status === 'Retired') retired++;
+          if (isAvailable(a.status)) available++;
+          else if (isAssigned(a.status)) assigned++;
+          else if (isUnderRepair(a.status)) repair++;
+          else if (isRetired(a.status)) retired++;
 
-          const cat = a.category || 'Uncategorized';
-          categories[cat] = (categories[cat] || 0) + 1;
+          const type = a.asset_type || a.category || 'Other';
+          types[type] = (types[type] || 0) + 1;
         }
 
         this.stats.set({
@@ -475,7 +486,8 @@ export class DashboardComponent implements OnInit {
           assignedAssets: assigned,
           underRepairAssets: repair,
           retiredAssets: retired,
-          categoryBreakdown: categories
+          categoryBreakdown: types,
+          assetTypeBreakdown: types
         });
         this.loading.set(false);
       },
@@ -492,13 +504,13 @@ export class DashboardComponent implements OnInit {
     });
   }
 
-  categoryList() {
-    const breakdown = this.stats().categoryBreakdown;
+  assetTypeList() {
+    const breakdown = this.stats().assetTypeBreakdown || this.stats().categoryBreakdown;
     const total = this.stats().totalAssets || 1;
-    return Object.keys(breakdown).map(cat => ({
-      name: cat,
-      count: breakdown[cat],
-      percentage: Math.round((breakdown[cat] / total) * 100)
+    return Object.keys(breakdown).map(type => ({
+      name: type,
+      count: breakdown[type],
+      percentage: Math.round((breakdown[type] / total) * 100)
     }));
   }
 

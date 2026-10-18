@@ -87,8 +87,9 @@ CREATE TABLE public.assets (
     id integer NOT NULL,
     asset_name character varying(100) NOT NULL,
     asset_code character varying(50) NOT NULL,
+    asset_type character varying(50) DEFAULT ''::character varying,
     category character varying(50) NOT NULL,
-    status character varying(20) DEFAULT 'Available'::character varying,
+    status character varying(20) DEFAULT 'AVAILABLE'::character varying,
     assigned_to character varying(100),
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     serial_number character varying(100) DEFAULT ''::character varying,
@@ -197,11 +198,11 @@ COPY public.asset_history (id, asset_id, asset_code, action_type, employee, acti
 -- Data for Name: assets; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.assets (id, asset_name, asset_code, category, status, assigned_to, created_at, serial_number, purchase_date, location) FROM stdin;
-4	MacBook	ASSET-05	Laptop	Assigned	Michael Brown	2026-10-17 12:39:15.556285	LNV-TP-987567	2026-10-17	Main IT Storage Room
-3	Dell Latitude 5540	ASSET-003	Laptop	Assigned	Sarah Williams	2026-10-17 12:18:22.569744	DELL-LAT-5540-X1	2024-05-10	Engineering Hub - Room 204
-5	Lenovo H17	ASSET-06	Laptop	Under Repair	\N	2026-10-17 22:25:23.540709	LNV-TP-987567	2026-10-17	Main IT Storage Room
-1	MacBook Pro 14"	ASSET-001	Laptop	Assigned	John Doe	2026-10-16 14:54:02.685185	MBP14-2024-001	2024-01-15	Floor 3 - Desk 302
+COPY public.assets (id, asset_name, asset_code, asset_type, category, status, assigned_to, created_at, serial_number, purchase_date, location) FROM stdin;
+4	MacBook	ASSET-05	Laptop	Laptop	ASSIGNED	Michael Brown	2026-10-17 12:39:15.556285	LNV-TP-987567	2026-10-17	Main IT Storage Room
+3	Dell Latitude 5540	ASSET-003	Laptop	Laptop	ASSIGNED	Sarah Williams	2026-10-17 12:18:22.569744	DELL-LAT-5540-X1	2024-05-10	Engineering Hub - Room 204
+5	Lenovo H17	ASSET-06	Laptop	Laptop	UNDER_REPAIR	\N	2026-10-17 22:25:23.540709	LNV-TP-987568	2026-10-17	Main IT Storage Room
+1	MacBook Pro 14"	ASSET-001	Laptop	Laptop	AVAILABLE	\N	2026-10-16 14:54:02.685185	MBP14-2024-001	2024-01-15	Floor 3 - Desk 302
 \.
 
 
@@ -255,6 +256,14 @@ ALTER TABLE ONLY public.asset_history
 
 ALTER TABLE ONLY public.assets
     ADD CONSTRAINT assets_asset_code_key UNIQUE (asset_code);
+
+
+--
+-- Name: assets assets_serial_number_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assets
+    ADD CONSTRAINT assets_serial_number_key UNIQUE (serial_number);
 
 
 --

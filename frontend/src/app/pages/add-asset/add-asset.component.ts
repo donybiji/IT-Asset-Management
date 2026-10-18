@@ -11,15 +11,15 @@ import { Asset, AssetStatus } from '../../models/asset.model';
   imports: [CommonModule, FormsModule, RouterLink],
   template: `
     <div class="add-asset-page animate-fade-in">
-      <div class="page-header">
+      <div class="page-header compact-header">
         <div>
           <h1 class="page-title">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="10"></circle>
               <line x1="12" y1="8" x2="12" y2="16"></line>
               <line x1="8" y1="12" x2="16" y2="12"></line>
             </svg>
-            Register New IT Asset
+            <span>Register New IT Asset</span>
           </h1>
           <p class="page-subtitle">Add a newly procured hardware asset or workstation to PostgreSQL inventory.</p>
         </div>
@@ -78,7 +78,7 @@ import { Asset, AssetStatus } from '../../models/asset.model';
                   [(ngModel)]="assetData.asset_code" 
                   required 
                   #codeModel="ngModel"
-                  placeholder="e.g. ASSET-003" 
+                  placeholder="e.g. ASSET-007" 
                   class="form-control"
                   [class.is-invalid]="codeModel.invalid && (codeModel.dirty || codeModel.touched || submitted)"
                 />
@@ -87,24 +87,24 @@ import { Asset, AssetStatus } from '../../models/asset.model';
                 </button>
               </div>
               <div *ngIf="codeModel.invalid && (codeModel.dirty || codeModel.touched || submitted)" class="error-feedback">
-                Asset Code is required.
+                Asset Code is required and must be unique.
               </div>
             </div>
 
-            <!-- Category -->
+            <!-- Asset Type -->
             <div class="form-group">
               <label class="form-label">
-                Category / Type <span class="required">*</span>
+                Asset Type <span class="required">*</span>
               </label>
               <select 
-                name="category"
-                [(ngModel)]="assetData.category" 
+                name="asset_type"
+                [(ngModel)]="assetData.asset_type" 
                 required 
-                #catModel="ngModel"
+                #typeModel="ngModel"
                 class="form-select"
-                [class.is-invalid]="catModel.invalid && (catModel.dirty || catModel.touched || submitted)"
+                [class.is-invalid]="typeModel.invalid && (typeModel.dirty || typeModel.touched || submitted)"
               >
-                <option value="">-- Select Category --</option>
+                <option value="">-- Select Asset Type --</option>
                 <option value="Laptop">Laptop</option>
                 <option value="Monitor">Monitor</option>
                 <option value="Desktop">Desktop</option>
@@ -116,8 +116,8 @@ import { Asset, AssetStatus } from '../../models/asset.model';
                 <option value="Audio/Video">Audio/Video</option>
                 <option value="Other">Other</option>
               </select>
-              <div *ngIf="catModel.invalid && (catModel.dirty || catModel.touched || submitted)" class="error-feedback">
-                Category is required.
+              <div *ngIf="typeModel.invalid && (typeModel.dirty || typeModel.touched || submitted)" class="error-feedback">
+                Asset Type is required.
               </div>
             </div>
 
@@ -137,7 +137,7 @@ import { Asset, AssetStatus } from '../../models/asset.model';
                 [class.is-invalid]="serialModel.invalid && (serialModel.dirty || serialModel.touched || submitted)"
               />
               <div *ngIf="serialModel.invalid && (serialModel.dirty || serialModel.touched || submitted)" class="error-feedback">
-                Serial Number is required.
+                Serial Number is required and must be unique.
               </div>
             </div>
 
@@ -165,20 +165,20 @@ import { Asset, AssetStatus } from '../../models/asset.model';
             </div>
 
             <!-- Initial Status -->
-            <div class="form-group">
+            <div class="form-group" style="grid-column: 1 / -1;">
               <label class="form-label">Initial Status</label>
               <select name="status" [(ngModel)]="assetData.status" class="form-select">
-                <option value="Available">Available (In Stock)</option>
-                <option value="Under Repair">Under Repair</option>
-                <option value="Retired">Retired</option>
+                <option value="AVAILABLE">AVAILABLE (In Stock)</option>
+                <option value="UNDER_REPAIR">UNDER_REPAIR (Maintenance)</option>
+                <option value="RETIRED">RETIRED (Decommissioned)</option>
               </select>
             </div>
           </div>
 
           <div class="form-actions">
-            <a routerLink="/assets" class="btn btn-secondary">Cancel</a>
-            <button type="submit" class="btn btn-primary" [disabled]="submitting">
-              <span *ngIf="submitting" class="spinner" style="width: 16px; height: 16px; margin-right: 6px;"></span>
+            <a routerLink="/assets" class="btn btn-secondary btn-sm">Cancel</a>
+            <button type="submit" class="btn btn-primary btn-sm" [disabled]="submitting">
+              <span *ngIf="submitting" class="spinner" style="width: 14px; height: 14px; margin-right: 6px;"></span>
               <span>{{ submitting ? 'Saving Asset...' : 'Register Asset in Database' }}</span>
             </button>
           </div>
@@ -187,56 +187,109 @@ import { Asset, AssetStatus } from '../../models/asset.model';
     </div>
   `,
   styles: [`
-    .form-container {
-      max-width: 860px;
+    .add-asset-page {
+      max-width: 680px;
       margin: 0 auto;
-      padding: 2.5rem;
+    }
+
+    .compact-header {
+      margin-bottom: 1.25rem;
+    }
+
+    .page-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .page-subtitle {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      margin-top: 0.2rem;
+    }
+
+    .form-container {
+      padding: 1.5rem 1.75rem;
+      border-radius: var(--radius-lg);
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
     }
 
     .form-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 1.5rem;
+      gap: 1rem 1.25rem;
     }
 
-    @media (max-width: 768px) {
+    @media (max-width: 640px) {
       .form-grid {
         grid-template-columns: 1fr;
       }
       .form-container {
-        padding: 1.5rem;
+        padding: 1.25rem;
       }
+    }
+
+    .form-group {
+      margin-bottom: 0.25rem;
+    }
+
+    .form-label {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 0.35rem;
+      display: block;
+    }
+
+    .form-control, .form-select {
+      height: 38px;
+      padding: 0.45rem 0.75rem;
+      font-size: 0.84rem;
+      border-radius: var(--radius-sm);
     }
 
     .input-with-action {
       display: flex;
-      gap: 0.5rem;
+      gap: 0.4rem;
     }
 
     .generate-btn {
       flex-shrink: 0;
+      height: 38px;
+      padding: 0 0.75rem;
       font-size: 0.75rem;
+      border-radius: var(--radius-sm);
     }
 
     .api-error-banner {
       background: rgba(239, 68, 68, 0.12);
       border: 1px solid rgba(239, 68, 68, 0.35);
       border-radius: var(--radius-md);
-      padding: 1rem;
+      padding: 0.75rem 1rem;
       color: #fca5a5;
       display: flex;
       align-items: center;
-      gap: 0.75rem;
-      margin-bottom: 2rem;
+      gap: 0.65rem;
+      margin-bottom: 1.25rem;
+      font-size: 0.8125rem;
     }
 
     .form-actions {
       display: flex;
       justify-content: flex-end;
-      gap: 1rem;
-      margin-top: 2rem;
-      padding-top: 1.5rem;
+      gap: 0.75rem;
+      margin-top: 1.25rem;
+      padding-top: 1rem;
       border-top: 1px solid var(--border-subtle);
+    }
+
+    .form-actions .btn {
+      padding: 0.5rem 1.1rem;
+      font-size: 0.8125rem;
     }
   `]
 })
@@ -247,11 +300,12 @@ export class AddAssetComponent {
   public assetData: Partial<Asset> = {
     asset_name: '',
     asset_code: '',
+    asset_type: '',
     category: '',
     serial_number: '',
     purchase_date: new Date().toISOString().split('T')[0],
     location: 'Main IT Storage Room',
-    status: 'Available'
+    status: 'AVAILABLE'
   };
 
   public submitted = false;
@@ -267,13 +321,20 @@ export class AddAssetComponent {
     this.submitted = true;
     this.apiError = null;
 
-    if (!this.assetData.asset_name || !this.assetData.asset_code || !this.assetData.category || !this.assetData.serial_number) {
+    if (!this.assetData.asset_type && this.assetData.category) {
+      this.assetData.asset_type = this.assetData.category;
+    }
+    if (!this.assetData.category && this.assetData.asset_type) {
+      this.assetData.category = this.assetData.asset_type;
+    }
+
+    if (!this.assetData.asset_name || !this.assetData.asset_code || !this.assetData.asset_type || !this.assetData.serial_number) {
       return;
     }
 
     this.submitting = true;
     this.assetService.createAsset(this.assetData).subscribe({
-      next: (created) => {
+      next: () => {
         this.submitting = false;
         this.router.navigate(['/assets']);
       },
@@ -284,7 +345,7 @@ export class AddAssetComponent {
         } else if (err.error?.message) {
           this.apiError = err.error.message;
         } else {
-          this.apiError = 'Failed to save asset. Please verify PostgreSQL connection and asset code uniqueness.';
+          this.apiError = 'Failed to save asset. Please verify PostgreSQL connection and unique asset code / serial number.';
         }
       }
     });

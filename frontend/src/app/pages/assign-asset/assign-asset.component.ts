@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { AssetService } from '../../services/asset.service';
-import { Asset, Employee, AssetHistory } from '../../models/asset.model';
+import { Asset, Employee, AssetHistory, isAvailable, isAssigned, isUnderRepair, isRetired, getStatusDisplayName } from '../../models/asset.model';
 
 @Component({
   selector: 'app-assign-asset',
@@ -124,7 +124,7 @@ import { Asset, Employee, AssetHistory } from '../../models/asset.model';
               >
                 <option [ngValue]="null">-- Choose hardware asset to assign --</option>
                 <option *ngFor="let asset of availableAssets()" [ngValue]="asset.id">
-                  [{{ asset.asset_code }}] {{ asset.asset_name }} • {{ asset.category }} (SN: {{ asset.serial_number || 'N/A' }})
+                  [{{ asset.asset_code }}] {{ asset.asset_name }} • {{ asset.asset_type || asset.category }} (SN: {{ asset.serial_number || 'N/A' }})
                 </option>
               </select>
             </div>
@@ -143,8 +143,8 @@ import { Asset, Employee, AssetHistory } from '../../models/asset.model';
               </div>
               <div class="preview-grid">
                 <div>
-                  <span class="preview-lbl">Hardware Category</span>
-                  <span class="preview-val">{{ selectedAsset()!.category }}</span>
+                  <span class="preview-lbl">Asset Type</span>
+                  <span class="preview-val">{{ selectedAsset()!.asset_type || selectedAsset()!.category }}</span>
                 </div>
                 <div>
                   <span class="preview-lbl">Serial Number</span>
@@ -934,7 +934,7 @@ export class AssignAssetComponent implements OnInit {
       history: this.assetService.getAssetHistory(undefined, undefined, 'Assigned', 6)
     }).subscribe({
       next: ({ assets, employeesRes, history }) => {
-        this.availableAssets.set((assets || []).filter(a => a.status === 'Available'));
+        this.availableAssets.set((assets || []).filter(a => isAvailable(a.status)));
         this.employees.set(employeesRes.employees || []);
         this.recentAssignments.set(history || []);
         this.loadingData.set(false);
@@ -974,8 +974,8 @@ export class AssignAssetComponent implements OnInit {
 
     // Pre-flight validation against current loaded state
     const targetAsset = this.availableAssets().find(a => a.id === assetId);
-    if (!targetAsset || targetAsset.status !== 'Available') {
-      this.conflictError.set(`Asset conflict: This hardware item is currently ${targetAsset?.status || 'Unavailable'} and cannot be assigned.`);
+    if (!targetAsset || !isAvailable(targetAsset.status)) {
+      this.conflictError.set(`Asset conflict: This hardware item is currently ${targetAsset ? getStatusDisplayName(targetAsset.status) : 'Unavailable'} and cannot be assigned.`);
       return;
     }
 

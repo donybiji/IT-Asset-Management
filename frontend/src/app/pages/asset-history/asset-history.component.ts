@@ -649,25 +649,29 @@ export class AssetHistoryComponent implements OnInit {
   }
 
   getActionBadgeClass(action: string): string {
-    switch (action) {
-      case 'Created': return 'badge-created';
-      case 'Assigned': return 'badge-assigned';
-      case 'Returned': return 'badge-available';
-      case 'Under Repair': return 'badge-repair';
-      case 'Retired': return 'badge-retired';
-      case 'Updated': return 'badge-updated';
+    const act = (action || '').toLowerCase();
+    switch (act) {
+      case 'created': return 'badge-created';
+      case 'assigned': return 'badge-assigned';
+      case 'returned': return 'badge-available';
+      case 'under repair':
+      case 'under_repair': return 'badge-repair';
+      case 'retired': return 'badge-retired';
+      case 'updated': return 'badge-updated';
       default: return 'badge-assigned';
     }
   }
 
   getActionIcon(action: string): string {
-    switch (action) {
-      case 'Created': return '+';
-      case 'Assigned': return '→';
-      case 'Returned': return '←';
-      case 'Under Repair': return '⚠';
-      case 'Retired': return '✖';
-      case 'Updated': return '✎';
+    const act = (action || '').toLowerCase();
+    switch (act) {
+      case 'created': return '+';
+      case 'assigned': return '→';
+      case 'returned': return '←';
+      case 'under repair':
+      case 'under_repair': return '⚠';
+      case 'retired': return '✖';
+      case 'updated': return '✎';
       default: return '•';
     }
   }
